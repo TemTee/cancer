@@ -1,10 +1,59 @@
+# Mammography is the most effective method for breast cancer screening. 
+# However, the low positive predictive value of breast biopsy resulting 
+# from mammogram interpretation leads to approximately 70% unnecessary 
+# biopsies with benign outcomes. To reduce the high number of unnecessary
+# breast biopsies, several computer-aided diagnosis (CAD) systems have been 
+# proposed in the last years. These systems help physicians in their decision 
+# to perform a breast biopsy on a suspicious lesion seen in a mammogram or to 
+# perform a short term follow-up examination instead.
+
+# This data set can be used to predict the severity (benign or malignant) of a 
+# mammographic mass lesion from BI-RADS attributes. It contains a BI-RADS
+# assessment, the patient's age shape, density, margin and severrity all
+# collected at the Institute of Radiology of the University Erlangen-Nuremberg between 2003 and 2006.
+
+#This first step install and loads required packages.
+
+
+# Attribute Information:
+  #1. BI-RADS assessment: 1 to 5 (ordinal)  
+  #2. Age: patient's age in years (integer)
+  #3. Shape: mass shape: round=1 oval=2 lobular=3 irregular=4 (nominal)
+  #4. Margin: mass margin: circumscribed=1 microlobulated=2 obscured=3 ill-defined=4 spiculated=5 (nominal)
+  #5. Density: mass density high=1 iso=2 low=3 fat-containing=4 (ordinal)
+  #6. Severity: benign=0 or malignant=1 (binominal)
+
+#Read in the data by downloading it from the UCI  web site.
+
+
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(purrr)) install.packages("purrr", repos = "http://cran.us.r-project.org")
+if(!require(gmodels)) install.packages("gmodels", repos = "http://cran.us.r-project.org")
+if(!require(knitr)) install.packages("knitr", repos = "http://cran.us.r-project.org")
+if(!require(rmarkdown)) install.packages("rmarkdown", repos = "http://cran.us.r-project.org")
+if(!require(tinytex)) install.packages("tinytex", repos = "http://cran.us.r-project.org")
+
 library(tidyverse)
 library(caret)
-library(dplyr)
-library(purrr) 
+library(purrr)
 library(gmodels)
+library(knitr)
+library(rmarkdown)
+library(tinytex)
+tinytex::install_tinytex()
+
 
 #     Read in the data and tidying the data
+
+
+#url <- "https://archive.ics.uci.edu/ml/machine-
+#learning-databases/mammographic-masses/mammographic_masses.data"
+
+#destfile <- "~/R/mammographic_masses.data"
+
+#download.file(url, destfile = destfile)
+
 
 mass <- data.frame(read_csv("~/R/datasets/mammographic_masses.data",
                  col_names = c("bi_rads","age", "shape", "margin", "density", "severity"), 
