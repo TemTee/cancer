@@ -19,7 +19,7 @@ mass <- data.frame(read_csv("~/R/datasets/mammographic_masses.data",
 
 str(mass)
 
-#         split 0.1% of the data for validation purpose
+#         split 15% of the data for validation purpose.
 
 set.seed(123, sample.kind = "Rounding")
 valid_index <- createDataPartition(mass$severity, times = 1, p = 0.15, list = FALSE)
@@ -28,6 +28,7 @@ validation_set <- mass [valid_index, ]
 
 str(mass)
 str(validation_set)
+
 
 #   Check the data for presence and number of missing values NA in each variable
 
@@ -51,6 +52,7 @@ mass <- mass %>% mutate(density = ifelse(is.na(density) %in% density,
                        margin = ifelse(is.na(margin) %in% margin, 
                                        round(mean(margin, na.rm = TRUE)),
                                        margin),
+               
                        age = replace_na(age, replace = mn_age),
                        shape = ifelse(is.na(shape) %in% shape, 
                                       round(mean(shape, na.rm = TRUE)),
@@ -179,16 +181,22 @@ mass %>%
 #     **************************    BUILD THE MODEL   **************************************
 
 
-#     *******     Normalise the data 
+#   I will be using the KNN algorithm to predict severity of mass in the
+#   the mammographic data. The data is a categorical data of different levels and K-nn been a 
+#   classification algorithm that generalises on categorical data by identifying labels will do well
+#   in making predictions. 
 
-#   I will be using the KNN algorithm to build the model to predict severity of mass in the
-#   the mammographic data. Because KNN uses distance to correctly make predictions,
-#   i would first normalise the numeric variables.
+#   The variables are of different scales e.g range of age is different from range of bi_rads.
+#   Because KNN uses distance to correctly make predictions,
+#   i would first normalise the numeric variables by substracting the min value from the max value
+#   in the function below.
 
-#     Write a function for the normalization
+
+#     Write a function for the normalization that works on numerical values only
+
 
 normalize <- function(x) {
-  !is.na(x)
+  x
   (x - min(x)) / (max(x) - min(x))
 }
 
@@ -196,20 +204,24 @@ normalize <- function(x) {
 
 mass_norm <- normalize(mass[1:5])
 
-#     Add missing target variable from mass data set
+#     Add the missing target variable from mass dataset
 
 mass_norm <- data.frame(mass_norm, mass[6])
 head(mass_norm)
 summary(mass_norm)
 
+
 #     *****************       Split the data into train and test sets 
-#     *****************       at 80% and 20% respectively without the target variables   
+#     *****************       to 60% and 40% respectively because the data set is not very large.
+
 set.seed(1, sample.kind = "Rounding")
-index <- createDataPartition(mass_norm$severity, times = 1, p = 0.2, list = FALSE)
+index <- createDataPartition(mass_norm$severity, times = 1, p = 0.4, list = FALSE)
 train_set <- mass_norm [-index, -6]
 test_set <- mass_norm [ index, -6]
 
+
 #     Create the labels for the train and test sets
+
 train_set_label <- mass_norm [-index , 6]
 test_set_label <- mass_norm [index , 6]
 
@@ -217,7 +229,8 @@ test_set_label <- mass_norm [index , 6]
 #       ***********         Train the model         ********************
 
 #   Standard practise for choosing K is using the square root value of number of objects
-#   in the datasets. In this case square root of 652 but i choose 21 instead of 26.
+#   in the datasets. In this case square root of 652 but i choose 21 instead of 26 to avoid
+#   over training using big values of k.
 
 fit <- knn3(train_set_label ~ .,
                 data = train_set, k = 21)
@@ -230,25 +243,92 @@ CrossTable(x = train_set_label, y = y_hat_knn)
 confusionMatrix(y_hat_knn, train_set_label)$overall["Accuracy"] 
 
 
-#     Build the prediction model
 
-y_hat_fit <- predict(fit, test_set, type = "class")
 
 #       **************      Evaluate the model        *****************
+
+
 
 #   Confirm if i overfitted the model by checking the accuracy of the train set against
 #   the accuracy of the test set.
 
+#     Build the prediction model
+
+y_hat_fit <- predict(fit, test_set, type = "class")
 
 CrossTable(x = test_set_label, y = y_hat_fit)
 confusionMatrix(test_set_label, y_hat_fit)$overall["Accuracy"] 
 
-#   The model predicted at about 81% correctly on this test set, meaning there is no over fitting
-#   and compared to the first model that predicted 50% where all values predicted were benign.
+#   The model predicted about 81% correctly on the test set,
+#   meaning there is no over fitting and it appear to be better than the
+#   first model that predicted 50% and all values predicted were benign.
 #   At 81% the model predicted 14 false positive and 17 false negative.
-#   Both error can be very costly.To reduce the error, i will try a range of values for k with the highest accuracy.
+#   Both error can be very costly.To reduce the error, i will try a range
+#   of values for k with the highest accuracy and standardizing the values instead of nomalizing.
 
-k <- seq(10, 150, 3)
+
+
+#     *************          Improving the Model's performance           *******************
+
+
+
+#   I will improved the model's performace by standarding the numeric variables
+#   Unlike normalization, standardization takes into consideration
+#   outliers in datasets.
+
+
+#     Standardize the numeric variables
+
+mass_z <- scale(mass[1:5])
+
+#     Add missing target variable from mass data set
+
+mass_z <- data.frame(mass_z, mass[6])
+head(mass_z)
+summary(mass_z)
+
+
+#     *****************       Split the data into train and test sets 
+#     *****************       at 80% and 20% respectively without the target variables
+
+
+set.seed(46, sample.kind = "Rounding")
+index <- createDataPartition(mass_z$severity, times = 1, p = 0.2, list = FALSE)
+train_set <- mass_z [-index, -6]
+test_set <- mass_z [ index, -6]
+
+#     Create the labels for the train and test sets
+train_set_label <- mass_z [-index , 6]
+test_set_label <- mass_z [index , 6]
+
+
+#       ***********         Train the model         ********************
+
+fit <- knn3(train_set_label ~ .,
+            data = train_set, k = 21)
+
+y_hat_knn <- predict(fit, train_set, type = "class")
+CrossTable(x = train_set_label, y = y_hat_knn)
+confusionMatrix(y_hat_knn, train_set_label)$overall["Accuracy"] 
+
+
+#     Build the prediction model on the test set
+
+
+y_hat_fit <- predict(fit, test_set, type = "class")
+
+CrossTable(x = test_set_label, y = y_hat_fit)
+confusionMatrix(test_set_label, y_hat_fit)$overall["Accuracy"] 
+
+
+
+#   The model predicted 78% (95 FN and 48 FP) for the train set and 81% (17 False 
+#   Negatives and 14 False Positives) for the test set.
+
+#   I will check for k that gives the highest accuracy and confirm how much the sensitivity
+#   and specificity is adjusted.
+
+k <- seq(3, 100,2)
 
 accuracy <- map_df(k, function(k){ 
   fit_k <- knn3(train_set_label ~ ., data = train_set, k = k)
@@ -263,8 +343,24 @@ accuracy <- map_df(k, function(k){
   tibble(train = train_error, test = test_error) 
 })
 
+
 qplot(k, accuracy$test)
 max(accuracy$test)
-k[which.max(accuracy$test)]
+k_acc <- k[which.max(accuracy$test)]
+k_acc
 
-#   The K that gives the higtest accuracy is 79
+
+# improve the model using the best k
+
+set.seed(1, sample.kind = "Rounding")
+
+fit <- knn3(train_set_label ~ .,
+            data = train_set, k = k_acc)
+
+y_hat_fit <- predict(fit, test_set, type = "class")
+CrossTable(x = test_set_label, y = y_hat_fit)
+confusionMatrix(test_set_label, y_hat_fit)$overall["Accuracy"] 
+
+
+# The model was improved from 82% to 87% with the FP and FN reduced to 12 and 10 respectively
+
