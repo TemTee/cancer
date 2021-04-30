@@ -261,10 +261,10 @@ summary(mass_norm)
 
 
 #     *****************       Split the data into train and test sets 
-#     *****************       to 60% and 40% respectively because the data set is not very large.
+#     *****************       to 80% and 20% respectively because the data set is not very large.
 
 set.seed(1, sample.kind = "Rounding")
-index <- createDataPartition(mass_norm$severity, times = 1, p = 0.4, list = FALSE)
+index <- createDataPartition(mass_norm$severity, times = 1, p = 0.2, list = FALSE)
 train_set <- mass_norm [-index, -6]
 test_set <- mass_norm [ index, -6]
 
