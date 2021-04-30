@@ -1,7 +1,7 @@
 library(tidyverse)
 library(caret)
 library(dplyr)
-library(psych)
+library(purrr) 
 library(gmodels)
 
 #     Read in the data and tidying the data
@@ -249,8 +249,6 @@ confusionMatrix(test_set_label, y_hat_fit)$overall["Accuracy"]
 #   Both error can be very costly.To reduce the error, i will try a range of values for k with the highest accuracy.
 
 k <- seq(10, 150, 3)
-
-library(purrr) 
 
 accuracy <- map_df(k, function(k){ 
   fit_k <- knn3(train_set_label ~ ., data = train_set, k = k)
