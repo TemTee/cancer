@@ -405,7 +405,6 @@ test_set_label <- factor(test_set_label)
 Standard practise for choosing K is using the square root value of 
 number of observation in the datasets or any number so i choose 25.
 
-
 Using the train set, the model predicted to an accuracy of 82%.
 39 False Negative and 54 False Positive
 
@@ -540,11 +539,13 @@ confusionMatrix(yhat, nb_test_set$severity)$overall["Accuracy"]
 
 --------------          Result                      -----------------------
 
+
 Result of Knn performance on test set
 
 Though the model did well at a specificity and sensitivity above 80%, both error can be very costly, it was improved by using Cross Validation. Iterate the data 25 times using 90% of the data.
 
 The model improved from 82% accuracy to 85% with False Positive and False negative significantly improved from 39:54 to 22:29 respectively. The model did not over train on the train set.
+
 
 ```{r}
 confusionMatrix(pred_knn_cv, test_set_label)$overall["Accuracy"]
@@ -566,15 +567,14 @@ CrossTable(y = yhat, x = nb_test_set$severity)
 
 ```
 
-
--------------        Summary
+  Summary
 
 The KNN and Bayes algorithm gave its hightest accuracy at 85% and 84% respectively. I was able to archive over 80% accuracy as proposed in the project aim. However, using the Knn algorithm gave the best accuracy with both specificity and sensitivity above 80%.
 
-Limitation
+  Limitation
 
 This project is limited a number of factors such as  variables, mismatch in target value prediction of over 10%. Only 5 factors were considered for predicting harmful and benign masses even though there are other variables that can be used to improve the prediction.  
 
-Future Works
+  Future Works
 
 This project is a simple prediction work that uses lazy learners with no much emphasizes on mismatch.
