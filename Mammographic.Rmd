@@ -1,0 +1,580 @@
+---
+title: "Predict Severity Of Mass In Mammographic Dataset"
+author: "Temilade Ogunbiyi"
+date: "30/04/2021"
+output: pdf_document
+---
+Project Overview
+
+Mammography is the most effective method for breast cancer screening. However, the low positive predictive value of breast biopsy resulting from mammogram interpretation leads to approximately 70% unnecessary biopsies with benign outcomes. Several computer-aided diagnosis (CAD) systems have been proposed in the last years. These systems help physicians in their decision to perform a breast biopsy on a suspicious lesion seen in a mammogram or to perform a short term follow-up examination instead.
+
+This data set can be used to predict the severity (benign or malignant) of a mammographic mass lesion from BI-RADS attributes. It contains a BI-RADS assessment, the patient's age shape, density, margin and severity all collected at the Institute of Radiology of the University Erlangen-Nuremberg between 2003 and 2006.
+
+Attribute Information:
+   1. BI-RADS assessment: 1 to 5  
+   2. Age: patient's age in years
+   3. Shape: mass shape: round=1 oval=2 lobular=3 irregular=4 
+   4. Margin: mass margin: circumscribed=1 microlobulated=2 obscured=3 ill-defined=4 spiculated=5
+   5. Density: mass density high=1 iso=2 low=3 fat-containing=4
+   6. Severity: benign=0 (not fatal) or malignant=1 (deadly)
+
+
+Aim Of Project
+
+The aim of this project is to build a model that predicts correctly, severity of mammography mass with over 80% accuracy. This is to reduce the high number of unnecessary breast biopsies and cost implication of taking several test on benign masses.
+
+
+Process Flow
+
+The steps below were taken in building this project;
+
+1. Data Preparation : this is the first stage of the project. It involved downloading the dataset from the UCI website and parsing the variables.
+2. Data Exploration and Visualization : explores the data for understanding and understanding the correlation amongs variables.
+3. Data Analysis and Modeling : build the model based on explortion and evaluate the model.
+4. Summary : Summarization of the results and its performance.
+
+
+Techniques Used
+
+i.  Imputing Missing Values (NA)
+Rather than substituting the NAs with the mean of its column, the mice package was used to impute missing values (NA) in the data. The down side of using the mean for substitution is that though the mean remain unchanged after the substitution, the variance of values tend to decrease and change the variance of the dataset. Another impact the mean will have on the model is that since majority of the variables are categorical, the resulting value will be one sided especially if the proportion of NAs is large and the result will be biased. Therefore, i used the mice (Multivariate Imputation via Chained Equations) package which assumes that the missing data are missing randomly i.e the probability that a value is missing depends on observed values and can be predicted based on that. It imputes data on variable by variable case.
+
+ii. Model 
+The dataset is categorical data. Based on this, algorithm used to predict severity of a mass were KNN, naive bayes and cross validation for model improvement.
+
+iii. Target Variable
+The severity of the mass was chosen as the target variable. It is therefore the feature that will be predicted.
+
+
+
+---------------------------         Data Preparation            -------------------------------
+
+Package Installation and Loading. This installs and load all required packages for the model to run properly.
+
+```{r}
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(purrr)) install.packages("purrr", repos = "http://cran.us.r-project.org")
+if(!require(gmodels)) install.packages("gmodels", repos = "http://cran.us.r-project.org")
+if(!require(knitr)) install.packages("knitr", repos = "http://cran.us.r-project.org")
+if(!require(rmarkdown)) install.packages("rmarkdown", repos = "http://cran.us.r-project.org")
+if(!require(tinytex)) install.packages("tinytex", repos = "http://cran.us.r-project.org")
+if(!require(mice)) install.packages("mice", repos = "http://cran.us.r-project.org")
+if(!require(VIM)) install.packages("VIM", repos = "http://cran.us.r-project.org")
+if(!require(e1071)) install.packages("e1071", repos = "http://cran.us.r-project.org")
+if(!require(psych)) install.packages("psych", repos = "http://cran.us.r-project.org")
+
+library(tidyverse)
+library(caret)
+library(e1071)
+library(purrr)
+library(gmodels)
+library(knitr)
+library(rmarkdown)
+library(tinytex)
+library(mice)
+library(VIM)
+library(psych)
+
+tinytex::install_tinytex()
+
+```
+
+
+Read in the data by downloading it from the UCI  web site.
+
+```{r}
+url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/mammographic-masses/mammographic_masses.data"
+
+destfile <- "~/R/mammographic_masses.data"
+
+download.file(url, destfile = destfile)
+
+mass <- data.frame(read_csv("~/R/datasets/mammographic_masses.data", na = "?",
+                             col_names = c("bi_rads","age", "shape",
+                                           "margin", "density", "severity")
+                            ))
+mass$bi_rads <-  ifelse(mass$bi_rads == 55, 5, mass$bi_rads)
+
+str(mass)
+head(mass)
+```
+
+Extract 10% of the data for validation. This is to allow for final simulation of as a new data for the model while the mass data is used as train and test set.
+
+```{r}
+
+set.seed(123, sample.kind = "Rounding")
+valid_index <- createDataPartition(mass$severity, times = 1, p = 0.1, list = FALSE)
+mass <- mass [-valid_index, ]
+validation_set <- mass [valid_index, ]
+
+```
+
+--------------------             Data Cleaning           --------------------------
+
+Parse the data to the proper class
+
+```{r}
+mass <- mass %>% mutate(bi_rads = as_factor(bi_rads),
+                        shape = as_factor(shape),
+                        margin = as_factor(margin),
+                        density = as_factor(density),
+                        severity = as_factor(severity))
+```
+
+Since there are only two values of severity (i.e 0 and 1) in the dataset and this is
+the variable i will be predicting, i therefore converted the o = benign (i.e non fatal mass) 
+and 1 = malignant (i.e deadly mass)
+
+```{r}
+mass$severity <- ifelse(mass$severity == 0, "benign", "malignant")
+str(mass)
+head(mass)
+```
+
+
+------------------     Data Exploration And Visualization   --------------------------
+
+Understand and exploring the data; Summary of the data shows the youngest age in the data is 18 while the oldest is 93 with a mean age of 55. The levels of the features ranges from 1-4 to 1-6 meaning they are of different data scale.
+
+There is presence of missing values (NA) in each variable except the target variable (severity). 
+
+
+```{r}
+summary(mass)
+```
+
+Number of missing values in each column
+```{r}
+colSums(is.na(mass))
+```
+Total number of missing values in the dataset
+
+```{r}
+table(is.na(mass))
+```
+
+Visualize the pattern and variation of the missing values.
+```{r}
+md.pattern(mass)
+
+```
+
+There is a total of 146 missing values in the dataset and it comprises about 3% of the examples with density having the highest number of NAs. The Nas seem to be missing randomly and because the data size is small, removing the NAs will do no good to the model. Althought the model is not included in this script,i have previously tried building a model that ignors all missing values but the model predicted badly giving an accuracy of 50% and all predictions made were benign. I will therefore replace the missing values using the mice package. 
+
+What is the proportion (%) of missing values in the dataset
+
+```{r}
+prop.table(table(is.na(mass))) * 100
+aggr(mass, col = c("cadetblue4", "red"), numbers =T, sortVars=T)
+
+
+```
+
+---------------   Imputing The NAs
+
+Replace NAs with predicted values using the mice package. Parameters used 
+meth = imputation method. This include 
+polyreg for factors with levels >2, 
+logreg for factors with levels = 2 and
+norm for numeric vectors
+predm = predictor matrix
+m = 5 default value of imputed datasets iteration
+
+```{r}
+init <- mice(mass, maxit = 5)
+meth <- init$method
+predm <- init$predictorMatrix
+
+```
+
+Specify methods for the imputation based on the variable type.
+Norm for numeric and polyreg for categorical variables with greater than 2 levels.
+Skip the imputation for the severity variable since it contains no missing value.
+
+```{r}
+meth[c("severity")] <- ""
+meth[c("bi_rads")] <- "polyreg"
+meth[c("age")] <- "norm"
+meth[c("shape")] <- "polyreg"
+meth[c("margin")] <- "polyreg"
+meth[c("density")] <- "polyreg"
+```
+
+Convert the missing values by running the multiple imputation model into the missing values of the mass dataset using the mice function.
+
+```{r}
+set.seed(1989, sample.kind = "Rounding")
+
+impute <- mice(mass, method = meth, 
+               predictorMatrix = predm, m =5)
+
+```
+
+Understand the imputed values: 
+
+From the below plot, the red points represent the imputed data (converted NAs) and the blue represents the observed values. The matching shape of both points tells us that the imputed values are credible and can be used in the dataset for analysis and prediction.
+
+```{r}
+summary(impute)
+xyplot(impute, age ~ bi_rads + shape + margin + density,
+          pch = 18, cex = 1)
+
+```
+
+Create a new imputed data set called imputed_mass and Check for missing values in the new data.
+
+```{r}
+imputed_mass <- complete(impute)
+
+colSums(is.na(imputed_mass))
+
+summary(imputed_mass)
+
+```
+
+Create a age group column to identify the variability of mass within the class of age
+
+```{r}
+imputed_mass <- imputed_mass %>% mutate(age_group = cut(imputed_mass$age,
+                                                        breaks = seq(0,100, 5)))
+imputed_mass$age_group <-  str_replace(imputed_mass$age_group,
+                                       ",", "-")
+imputed_mass$age_group <-  factor(str_remove_all(imputed_mass$age_group, "[\\(,\\]$]"))
+
+head(imputed_mass)
+```
+
+--------------------        Visualization and exploration of the data
+
+Summary of the data
+
+```{r}
+describe(imputed_mass)
+```
+
+Proportion(%) of benign and malignant mass in the data
+```{r}
+round(prop.table(table(imputed_mass$severity)) * 100, digits = 2)
+```
+
+Count and visual distribution of severity in the data
+
+```{r}
+table(imputed_mass$severity)
+imputed_mass %>% ggplot(aes(severity,fill = severity)) +
+  geom_bar(width = 0.5)
+```
+
+The distribution curve of age is almost normal. More of the people in the dataset are between 50-65
+```{r}
+histogram(imputed_mass$age, fill = "aquamarine4", xlab = "Age")
+histogram(imputed_mass$age_group, fill = "aquamarine4", xlab = "Age Group")
+densityplot(imputed_mass$age)
+```
+
+Visualize the relationship between age and severity.
+
+There is no correlation or linear relationship between age and severity of the mass. The plot also hows  that mass may occur at any age although it may be harmless, the malignant mass tend to shift to the older age.
+
+```{r}
+imputed_mass %>%  
+  ggplot(aes(factor(age),severity, color = severity))+ 
+  geom_point(size = 1.75, position = "jitter")+
+  xlab("Age")+
+  ylab("Severity")
+
+imputed_mass %>%  
+  ggplot(aes(age_group,severity, color = severity))+ 
+  geom_point(size = 1.75, position = "jitter")+
+  xlab("Age Group")+
+  ylab("Severity")
+```
+
+Plot of relationship between age count and severity shows a non linear relationship
+Skewness to the right for malignant masses and to the left for benign masses.
+
+```{r}
+imputed_mass %>% group_by(age,severity) %>% summarise(n = n()) %>% 
+  ggplot(aes(factor(age),n, color = severity))+ 
+  geom_point(size = 1.75, position = "jitter")+
+  xlab("Age")+
+  ylab("Age Count")
+
+imputed_mass %>% group_by(age_group,severity) %>% summarise(n = n()) %>% 
+  ggplot(aes(age_group,n, fill = severity))+ 
+  geom_col(color = "grey")+
+  xlab("Age")+
+  ylab("Age Count")
+```
+
+The shape of the mass is grouped into 4 distinct densities that are not linear and mostly clogged around low density represented by 3 with their severity interwoven but mostly malignant when it is Fat-Containing(4) and irregular (4) in shape.
+
+```{r}
+imputed_mass %>% 
+  ggplot(aes(factor(shape),factor(density), color = severity))+ 
+  geom_point(size = 1.75,
+             position = "jitter")+
+  xlab("Shape")+
+  ylab("Density")
+```
+
+The benign and malignant masses appear to be some what separated and can be slightly distinguished in the shape and bi_rads visualization. This two variables can be used as good predictor.
+
+```{r}
+imputed_mass %>% 
+  ggplot(aes(factor(shape),factor(bi_rads), color = severity))+ 
+  geom_point(size = 1.75,
+             position = "jitter")+
+  xlab("Shape")+
+  ylab("Bi-Rads")
+```
+
+There is no relationship between the bi_rad and density variable, it however shows two distinct group of masses and a little mix of both severity.
+
+```{r}
+imputed_mass %>% 
+  ggplot(aes(factor(bi_rads),factor(density), color = severity))+ 
+  geom_point(size = 1.75,
+             position = "jitter")+
+  xlab("Bi-Rads")+
+  ylab("Density")
+```
+
+Majority of the round (1) and oval (2) shaped masses with circumscribed and microlobulated margins seem harmless compared to masses of lobular (3) and irregular (4) shape.
+
+```{r}
+imputed_mass %>% 
+  ggplot(aes(factor(shape),factor(margin), color = severity))+ 
+  geom_point(size = 1.75,
+             position = "jitter")+
+  xlab("Shape")+
+  ylab("Margin")
+```
+
+
+
+ **************************    BUILD THE MODEL   **************************************
+
+I will be using the KNN algorithm to predict severity of mass in the mammographic data. The data is a categorical data of different levels and K-nn being a classification algorithm that generalises on categorical data by identifying labels will do well in making the predictions. 
+
+The variables are of different scales e.g range of margin is different from range of bi_rads. Because KNN uses distance to correctly make predictions, i would first normalise the numeric variables by substracting the min value from the max value using below function.
+Exclude the age and age group variable as it does not have much effect on other variables
+
+Write a function for normalization to normalize the variables. To normalize the imputed data, first coerce the imputed data to numeric using the lapply function. Add the missing target variable
+
+```{r}
+normalize <- function(x) {
+  
+  (x - min(x)) / (max(x) - min(x))
+}
+
+imputed_mass_norm <- imputed_mass %>% select(-age)
+imputed_mass_norm <- as.data.frame(lapply(imputed_mass_norm[1:4], as.numeric))
+imputed_mass_norm <- normalize(imputed_mass_norm) 
+imputed_mass_norm <- data.frame(imputed_mass_norm, imputed_mass[6])
+head(imputed_mass_norm)
+summary(imputed_mass_norm)
+```
+
+
+Split the data into train and test sets of 60% and 40% respectively because the data set is not large.
+
+```{r}
+set.seed(1, sample.kind = "Rounding")
+index <- createDataPartition(imputed_mass_norm$severity, times = 1, p = 0.4, list = FALSE)
+train_set <- imputed_mass_norm [-index, -5]
+test_set <- imputed_mass_norm [ index, -5]
+```
+
+Create the labels for the train and test sets using the severity variable. 
+The labels are benign and malignant and are parsed as factor.
+
+```{r}
+train_set_label <- imputed_mass_norm [-index , 5]
+test_set_label <- imputed_mass_norm [index , 5]
+train_set_label <- factor(train_set_label)
+test_set_label <- factor(test_set_label)  
+```
+
+
+-----------------------             Train the model         -----------------------------
+
+
+Standard practise for choosing K is using the square root value of 
+number of observation in the datasets or any number so i choose 25.
+
+
+Using the train set, the model predicted to an accuracy of 82%.
+39 False Negative and 54 False Positive
+
+
+```{r}
+set.seed(1, sample.kind = "Rounding")
+
+fit <- knn3(train_set_label ~ .,
+            data = train_set, k = 25)
+
+y_hat_knn <- predict(fit, train_set, type = "class")
+
+CrossTable(x = train_set_label, y = y_hat_knn)
+```
+
+Train set accuracy
+
+```{r}
+confusionMatrix(y_hat_knn, train_set_label)$overall["Accuracy"]
+
+
+```
+
+
+--------------------        Model Evaluation using the test set         ------------------
+
+
+The model predicted about 84% accuracy on the test set, meaning i did not overfit the train set.
+At 83% the model predicted 34 false positive and 21 false negative.
+ Sensitivity = 87%
+ Specificity = 80.4%
+
+
+```{r}
+y_hat_fit <- predict(fit, test_set, type = "class")
+
+confusionMatrix(test_set_label, y_hat_fit)
+```
+
+Test set accuracy
+
+```{r}
+confusionMatrix(test_set_label, y_hat_fit)$overall["Accuracy"] 
+
+```
+
+
+-------------------          Improving the Model's performance       ---------------------
+
+
+```{r}
+set.seed(1, sample.kind = "Rounding")
+
+control <- trainControl(method = "cv", number = 25, p = .9) 
+
+train_knn_cv <- train(train_set, train_set_label, method = "knn",
+                      trControl = control) 
+pred_knn_cv <- predict(train_knn_cv, test_set, type = "raw")
+                      tuneGrid = data.frame(k = seq(21, 100, 2))
+```
+
+Improved model's accuracy
+
+```{r}
+                      
+confusionMatrix(pred_knn_cv, test_set_label)$overall["Accuracy"]
+```
+
+Which k gave the best accuracy.
+
+```{r}
+train_knn_cv$bestTune
+
+ggplot(train_knn_cv)
+
+```
+
+The model was improved from 82% to 85% with the FP and FN reduced to 22 and 29 respectively.
+
+
+-------------------           Using Naive Bayes Algorithm         ----------------------------
+
+Naive bayes is a logic based algorithm that uses probability to identify features. Using this probabalistic approach, i would predict the mammography mass severity using naive bayes to see how well it predicts compared to knn algorithm.
+
+Fit the naive bayes classifier and train the model
+
+```{r}
+set.seed(1, sample.kind = "Rounding")
+imputed_mass$severity <- factor(imputed_mass$severity)
+index <- createDataPartition(imputed_mass$severity, times = 1, p = 0.4, list = FALSE)
+nb_train_set <- imputed_mass [-index, ]
+nb_test_set <- imputed_mass [ index, ]
+
+
+nb_class <- naiveBayes(nb_train_set$severity ~ bi_rads + shape
+                       + margin + density, data = nb_train_set)
+
+nb_pred <- predict(nb_class, nb_train_set)
+```
+
+Naive train set accuracy
+```{r}
+confusionMatrix(nb_pred, nb_train_set$severity)$overall["Accuracy"]
+CrossTable(y = nb_pred, x = nb_train_set$severity)
+```
+
+Naive test set accuracy
+
+```{r}
+nb_yhat <- predict(nb_class, nb_test_set)
+confusionMatrix(nb_yhat, nb_test_set$severity)$overall["Accuracy"]
+CrossTable(y = nb_yhat, x = nb_test_set$severity)
+```
+
+Using the bayes algorithm i arrived at a 84% accuracy without overfitting the train set
+
+
+-----------------------           Improved Model's Performance       -----------------------
+
+```{r}
+set.seed(1, sample.kind = "Rounding")
+trn_cntrl <- trainControl(method = "cv", number = 15, savePredictions = TRUE)
+
+nb_fit <- train(severity ~ bi_rads + shape
+                + margin + density, data = nb_train_set,
+                method = "naive_bayes",
+                trControl = trn_cntrl,
+                tunelength = 5)
+yhat <- predict(nb_fit, nb_test_set)
+confusionMatrix(yhat, nb_test_set$severity)$overall["Accuracy"]
+```
+
+--------------          Result                      -----------------------
+
+Result of Knn performance on test set
+
+Though the model did well at a specificity and sensitivity above 80%, both error can be very costly, it was improved by using Cross Validation. Iterate the data 25 times using 90% of the data.
+
+The model improved from 82% accuracy to 85% with False Positive and False negative significantly improved from 39:54 to 22:29 respectively. The model did not over train on the train set.
+
+```{r}
+confusionMatrix(pred_knn_cv, test_set_label)$overall["Accuracy"]
+confusionMatrix(pred_knn_cv, test_set_label)
+CrossTable(x = test_set_label, y = pred_knn_cv)
+
+
+```
+
+Result of Naive bayes performance on test set
+
+Impact of improvement was not much on the naive bayes model as the evaluation accuracy and improvement accuracy were within 84%.
+
+```{r}
+
+confusionMatrix(yhat, nb_test_set$severity)$overall["Accuracy"]
+confusionMatrix(yhat, nb_test_set$severity)
+CrossTable(y = yhat, x = nb_test_set$severity)
+
+```
+
+
+-------------        Summary
+
+The KNN and Bayes algorithm gave its hightest accuracy at 85% and 84% respectively. I was able to archive over 80% accuracy as proposed in the project aim. However, using the Knn algorithm gave the best accuracy with both specificity and sensitivity above 80%.
+
+Limitation
+
+This project is limited a number of factors such as  variables, mismatch in target value prediction of over 10%. Only 5 factors were considered for predicting harmful and benign masses even though there are other variables that can be used to improve the prediction.  
+
+Future Works
+
+This project is a simple prediction work that uses lazy learners with no much emphasizes on mismatch.
