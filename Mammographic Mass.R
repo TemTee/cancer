@@ -1,3 +1,5 @@
+
+
 # Mammography is the most effective method for breast cancer screening. 
 # However, the low positive predictive value of breast biopsy resulting 
 # from mammogram interpretation leads to approximately 70% unnecessary 
@@ -26,6 +28,9 @@
 #Read in the data by downloading it from the UCI  web site.
 
 
+#     Install reqiured packages
+
+
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 if(!require(purrr)) install.packages("purrr", repos = "http://cran.us.r-project.org")
@@ -33,6 +38,12 @@ if(!require(gmodels)) install.packages("gmodels", repos = "http://cran.us.r-proj
 if(!require(knitr)) install.packages("knitr", repos = "http://cran.us.r-project.org")
 if(!require(rmarkdown)) install.packages("rmarkdown", repos = "http://cran.us.r-project.org")
 if(!require(tinytex)) install.packages("tinytex", repos = "http://cran.us.r-project.org")
+if(!require(mice)) install.packages("mice", repos = "http://cran.us.r-project.org")
+if(!require(VIM)) install.packages("VIM", repos = "http://cran.us.r-project.org")
+
+
+#   Load the packages using the library function
+
 
 library(tidyverse)
 library(caret)
@@ -41,21 +52,23 @@ library(gmodels)
 library(knitr)
 library(rmarkdown)
 library(tinytex)
+library(mice)
+library(VIM)
 tinytex::install_tinytex()
 
 
-#     Read in the data and tidying the data
+#     Read in the data from the UCI website
 
 
-#url <- "https://archive.ics.uci.edu/ml/machine-
-#learning-databases/mammographic-masses/mammographic_masses.data"
+#url <- "https://archive.ics.uci.edu/ml/machine-learning-databases/mammographic-masses/mammographic_masses.data"
 
 #destfile <- "~/R/mammographic_masses.data"
 
 #download.file(url, destfile = destfile)
 
 
-mass <- data.frame(read_csv("~/R/datasets/mammographic_masses.data",
+mass <- data.frame(read_csv(url("https://archive.ics.uci.edu/ml/machine-learning-databases/
+                                mammographic-masses/mammographic_masses.data"), sep = ",",
                  col_names = c("bi_rads","age", "shape", "margin", "density", "severity"), 
                  col_types = cols(bi_rads = col_number(),
                                    age = col_number(),
@@ -68,10 +81,10 @@ mass <- data.frame(read_csv("~/R/datasets/mammographic_masses.data",
 
 str(mass)
 
-#         split 15% of the data for validation purpose.
+#         split 10% of the data for validation purpose.
 
 set.seed(123, sample.kind = "Rounding")
-valid_index <- createDataPartition(mass$severity, times = 1, p = 0.15, list = FALSE)
+valid_index <- createDataPartition(mass$severity, times = 1, p = 0.1, list = FALSE)
 mass <- mass [-valid_index, ]
 validation_set <- mass [valid_index, ]
 
@@ -261,10 +274,10 @@ summary(mass_norm)
 
 
 #     *****************       Split the data into train and test sets 
-#     *****************       to 80% and 20% respectively because the data set is not very large.
+#     *****************       to 50% and 50% respectively because the data set is not very large.
 
 set.seed(1, sample.kind = "Rounding")
-index <- createDataPartition(mass_norm$severity, times = 1, p = 0.2, list = FALSE)
+index <- createDataPartition(mass_norm$severity, times = 1, p = 0.5, list = FALSE)
 train_set <- mass_norm [-index, -6]
 test_set <- mass_norm [ index, -6]
 
@@ -326,30 +339,23 @@ confusionMatrix(test_set_label, y_hat_fit)$overall["Accuracy"]
 #   outliers in datasets.
 
 
-#     Standardize the numeric variables
-
-mass_z <- scale(mass[1:5])
-
-#     Add missing target variable from mass data set
-
-mass_z <- data.frame(mass_z, mass[6])
-head(mass_z)
-summary(mass_z)
-
 
 #     *****************       Split the data into train and test sets 
-#     *****************       at 80% and 20% respectively without the target variables
+#     *****************       at 50% and 50% respectively without the target variables
 
 
 set.seed(46, sample.kind = "Rounding")
-index <- createDataPartition(mass_z$severity, times = 1, p = 0.2, list = FALSE)
-train_set <- mass_z [-index, -6]
-test_set <- mass_z [ index, -6]
+index <- createDataPartition(mass$severity, times = 1, p = 0.5, list = FALSE)
+train_set <- mass [-index, -6]
+test_set <- mass [ index, -6]
 
 #     Create the labels for the train and test sets
-train_set_label <- mass_z [-index , 6]
-test_set_label <- mass_z [index , 6]
+train_set_label <- mass [-index , 6]
+test_set_label <- mass [index , 6]
 
+#   Preprocess the data by standardising it. Bringing the mean to zero.
+
+prepro <- 
 
 #       ***********         Train the model         ********************
 
