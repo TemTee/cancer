@@ -577,4 +577,4 @@ This project is limited a number of factors such as  variables, mismatch in targ
 
   Future Works
 
-This project is a simple prediction work that uses lazy learners with no much emphasizes on mismatch.
+This project is a simple prediction work that uses lazy learners with no much emphasizes on mismatch. More analysis and work can be included to better increase the functionality of the project work.
